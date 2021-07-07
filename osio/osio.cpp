@@ -1,22 +1,36 @@
-﻿#include "framework.h"
+﻿#include <fstream>
+#include <iomanip>
+#include <sstream>
+
+#include "framework.h"
 using namespace std;
 #include "resource.h"
-#include <windows.h>
+#include <Windows.h>
 #include <string>
+#include <regex>
 
 HWND hwndMain;
+HINSTANCE hInstanceMain;
+string tempPath;
 
 BOOL CALLBACK mainWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+BOOL CALLBACK renameWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+BOOL CALLBACK editWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
 
 WIN32_FIND_DATA* findFile(string path, bool countDir = false);
 bool fileExists(string path, bool showDialog = true);
 void alert(string msg, string title = "Alert!", UINT uType = MB_OK | MB_ICONINFORMATION);
+string getStringFromId(int id, HWND hwnd);
 string getPath();
 void clearPath();
+vector<string> splitString(string s, string delimiter);
+string sysTimeToString(SYSTEMTIME st);
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR strCmdLine, int nCmdShow)
 {
-	DialogBox(hInstance,
+	hInstanceMain = hInstance;
+	DialogBox(hInstanceMain,
 		MAKEINTRESOURCE(IDD_MAIN),
 		NULL,
 		mainWindowHandle);
@@ -39,26 +53,216 @@ BOOL CALLBACK mainWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 		switch (LOWORD(wParam))
 		{
 		case IDD_B_CREATE:
+		{
 			auto path = getPath();
 			if (!fileExists(path)) {
 				HANDLE hF = CreateFile(path.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-				if(hF == INVALID_HANDLE_VALUE) alert("Ошибка при создании файла", "Ошибка", MB_OK | MB_ICONERROR);
-				else { 
-					alert("Файл успешно создан", "Информация", MB_OK | MB_ICONINFORMATION); 
+				if (hF == INVALID_HANDLE_VALUE) alert("Ошибка при создании файла", "Ошибка", MB_OK | MB_ICONERROR);
+				else {
+					alert("Файл успешно создан", "Информация", MB_OK | MB_ICONINFORMATION);
 					CloseHandle(hF);
 				}
 			}
 			break;
 		}
-		//case WM_INITDIALOG:
-		//	return SetDlgMsgResult(hWnd, uMsg, HANDLE_WM_INITDIALOG((hWnd), (wParam), (lParam), (DialogOnInitDialog)));
+		case IDD_B_DELETE:
+		{
+			auto path = getPath();
+			if (fileExists(path, false))
+			{
+				auto h = DeleteFileA(path.c_str());
+				if (h) alert("Файл успешно удален", "Информация", MB_OK | MB_ICONINFORMATION);
+				else alert("Ошибка при удалении файла", "Ошибка", MB_OK | MB_ICONERROR);
+			}
+			else alert("Файл не существует", "Ошибка", MB_OK | MB_ICONERROR);
+			break;
+		}
+		case IDD_B_COPY:
+		{
+			auto path = getPath();
+			if (!fileExists(path, false))
+			{
+				alert("Файл не существует", "Ошибка", MB_OK | MB_ICONERROR);
+				break;
+			}
+			auto newPath = path;
+			newPath = regex_replace(newPath, regex("\\."), "(copy).");
 
-		//case WM_COMMAND:
-		//	return SetDlgMsgResult(hWnd, uMsg, HANDLE_WM_COMMAND((hWnd), (wParam), (lParam), (DialogOnCommand)));
+			CopyFileA(path.c_str(), newPath.c_str(), true);
 
-		//case WM_TIMER:
-		//	return SetDlgMsgResult(hWnd, uMsg, HANDLE_WM_TIMER((hWnd), (wParam), (lParam), (DialogOnTimer)));
+			alert("Файл успешно скопирован по пути " + newPath, "Информация");
+				
+			break;
+		}
+		case IDD_B_RENAME:
+		{
+			auto path = getPath();
+			if (!fileExists(path, false))
+			{
+				alert("Файл не существует", "Ошибка", MB_OK | MB_ICONERROR);
+				break;
+			}
 
+			tempPath = path;
+
+			DialogBox(hInstanceMain, MAKEINTRESOURCE(IDD_RENAME), NULL, renameWindowHandle);
+				
+			break;
+		}
+		case IDD_B_LINK:
+		{
+			auto path = getPath();
+			if (!fileExists(path, false))
+			{
+				alert("Файл не существует", "Ошибка", MB_OK | MB_ICONERROR);
+				break;
+			}
+
+			auto newName = regex_replace(splitString(path, "/").back(), regex("\\."), "(link)."); ;
+			auto newPath = "c:/users/artgl/desktop/" + newName;
+
+			auto r = CreateHardLink(newPath.c_str(), path.c_str(), NULL);
+
+			if (r == 0) alert("Не удалось создать ссылку на файл", "Ошибка", MB_OK | MB_ICONERROR);
+			else alert("Ссылка на файл успешна создана по пути " + newPath, "Информация");
+			
+			break;
+		}
+		case IDD_B_EDIT:
+		{
+			auto path = getPath();
+			if (!fileExists(path, false))
+			{
+				alert("Файл не существует", "Ошибка", MB_OK | MB_ICONERROR);
+				break;
+			}
+
+			tempPath = path;
+			DialogBox(hInstanceMain, MAKEINTRESOURCE(IDD_EDIT), NULL, editWindowHandle);
+			break;
+		}
+		case IDD_B_INFO:
+		{
+			auto path = getPath();
+			auto f = findFile(path);
+			if(f == nullptr)
+			{
+				alert("Файл не существует", "Ошибка", MB_OK | MB_ICONERROR);
+				break;
+			}
+
+			auto h = CreateFile(tempPath.c_str(),
+				GENERIC_READ,
+				0,
+				NULL,
+				OPEN_ALWAYS,
+				FILE_ATTRIBUTE_NORMAL,
+				NULL);
+
+			DWORD sz;
+			GetFileSize(h, &sz);
+
+			SYSTEMTIME dateCreated;
+			FileTimeToSystemTime(&f->ftCreationTime, &dateCreated);
+
+			string info = "Дата создания: " + sysTimeToString(dateCreated) + "\n";
+			info += "Размер: " + to_string(sz) + " байт\n";
+				
+			alert(info, "Информация о файле");
+				
+			break;
+		}
+		default:
+			break;
+		}
+	}
+
+	return FALSE;
+}
+
+// RENAME WINDOW HANDLER -----------------------------------------------------------
+
+BOOL CALLBACK renameWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	switch (uMsg)
+	{
+	case WM_CLOSE:
+		CloseWindow(hWnd);
+		break;
+	case WM_COMMAND:
+	{
+		switch (LOWORD(wParam))
+		{
+		case RENAME_B_OK:
+		{
+			auto newPath = getStringFromId(RENAME_INPUT, hWnd);
+			int r = MoveFile(tempPath.c_str(), newPath.c_str());
+			if (r == 0) alert("Не удалось переместить файл", "Ошибка", MB_OK | MB_ICONERROR);
+			else alert("Файл успешно перемещен/переименован", "Информация");
+			CloseWindow(hWnd);
+		}
+		}
+	}
+	default:
+		break;
+	}
+
+	return FALSE;
+}
+
+// EDIT WINDOW HANDLER -----------------------------------------------------------
+
+BOOL CALLBACK editWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	switch (uMsg)
+	{
+	case WM_CLOSE:
+		CloseWindow(hWnd);
+		break;
+	case WM_INITDIALOG:
+	{
+		ifstream s(tempPath);
+		stringstream buffer;
+		buffer << s.rdbuf();
+
+		string content = buffer.str();
+		auto r = SetDlgItemText(hWnd, EDIT_INPUT, content.c_str());
+		break;
+	}
+	case WM_COMMAND:
+	{
+		switch (LOWORD(wParam))
+		{
+		case EDIT_OK:
+		{
+			auto newData = getStringFromId(EDIT_INPUT, hWnd);
+
+			auto h = CreateFile(tempPath.c_str(),
+				GENERIC_WRITE,          
+				0,                      
+				NULL,                   
+				OPEN_ALWAYS,             
+				FILE_ATTRIBUTE_NORMAL,  
+				NULL);
+				
+			DWORD bytesWritten = 0;
+		
+			auto r = WriteFile(
+				 h,
+				 newData.c_str(),
+				 (DWORD)strlen(newData.c_str()),
+				 &bytesWritten, 
+				 NULL);
+				
+			 CloseHandle(h);
+
+			 alert("Изменение файла успешно!", "Информация");
+			 CloseWindow(hWnd);
+		}
+		}
+	}
+	default:
+		break;
 	}
 
 	return FALSE;
@@ -67,8 +271,11 @@ BOOL CALLBACK mainWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 // HELPER METHODS -------------------------------------------------------------
 
 WIN32_FIND_DATA* findFile(string path, bool countDir) {
-	if (!isalpha(path.back())) alert("Неправильный путь", "Ошибка", MB_OK | MB_ICONERROR);
-
+	if (path.length() == 0 || !isalpha(path.back()))
+	{
+		alert("Неправильный путь", "Ошибка", MB_OK | MB_ICONERROR);
+		return nullptr;
+	}
 	WIN32_FIND_DATA info;
 	HANDLE res = FindFirstFile(path.c_str(), &info);
 	if (res == INVALID_HANDLE_VALUE) return nullptr;
@@ -86,12 +293,48 @@ void alert(string msg, string title, UINT uType)
 	MessageBoxA(NULL, msg.c_str(), title.c_str(), uType);
 }
 
-string getPath() {
+string getPath()
+{
+	return getStringFromId(IDC_PATH, hwndMain);
+}
+
+string getStringFromId(int id, HWND hwnd)
+{
 	char msg[256];
-	GetDlgItemText(hwndMain, IDC_PATH, (LPSTR)&msg, sizeof(msg) * sizeof(char));
+	GetDlgItemText(hwnd, id, (LPSTR)&msg, sizeof(msg) * sizeof(char));
 	return string(msg);
 }
 
 void clearPath() {
 	SetDlgItemText(hwndMain, IDC_PATH, "");
+}
+
+vector<string> splitString(string s, string delimiter) {
+	size_t pos_start = 0, pos_end, delim_len = delimiter.length();
+	string token;
+	vector<string> res;
+
+	while ((pos_end = s.find(delimiter, pos_start)) != string::npos) {
+		token = s.substr(pos_start, pos_end - pos_start);
+		pos_start = pos_end + delim_len;
+		res.push_back(token);
+	}
+
+	res.push_back(s.substr(pos_start));
+	return res;
+}
+
+string sysTimeToString(SYSTEMTIME st)
+{
+	ostringstream ossMessage;
+
+	ossMessage << st.wYear << "-"
+		<< setw(2) << setfill('0') << st.wMonth << "-"
+		<< setw(2) << setfill('0') << st.wDay << " "
+		<< setw(2) << setfill('0') << st.wHour << ":"
+		<< setw(2) << setfill('0') << st.wMinute << ":"
+		<< setw(2) << setfill('0') << st.wSecond << "."
+		<< setw(3) << setfill('0') << st.wMilliseconds;
+
+	return  ossMessage.str();
 }
