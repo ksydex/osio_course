@@ -3,6 +3,7 @@
 // Используется osio.rc
 //
 #define IDC_MYICON                      2
+#define IDC_PATH                        2
 #define IDD_B_DELETE                    3
 #define IDD_B_COPY                      4
 #define IDD_B_ATTRS                     5
