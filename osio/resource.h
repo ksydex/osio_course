@@ -25,6 +25,7 @@
 #define IDD_RENAME                      130
 #define IDD_RENAME1                     131
 #define IDD_EDIT                        131
+#define IDD_ATTRS                       132
 #define IDC_EDIT1                       1000
 #define RENAME_INPUT                    1000
 #define IDD_B_CREATE                    1001
@@ -32,6 +33,16 @@
 #define RENAME_B_OK                     1003
 #define EDIT_OK                         1004
 #define EDIT_INPUT                      1005
+#define ATTRS_H                         1007
+#define ATTRS_A                         1008
+#define ATTRS_RO                        1009
+#define ATTRS_SAVE                      1010
+#define ATTRS_N                         1011
+#define ATTRS_NCI                       1012
+#define ATTRS_OFF                       1013
+#define ATTRS_SYS                       1014
+#define ATTRS_A6                        1015
+#define ATTRS_TMP                       1015
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
@@ -41,7 +52,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        131
 #define _APS_NEXT_COMMAND_VALUE         32771
-#define _APS_NEXT_CONTROL_VALUE         1006
+#define _APS_NEXT_CONTROL_VALUE         1011
 #define _APS_NEXT_SYMED_VALUE           110
 #endif
 #endif

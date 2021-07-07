@@ -16,7 +16,7 @@ string tempPath;
 BOOL CALLBACK mainWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 BOOL CALLBACK renameWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 BOOL CALLBACK editWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-
+BOOL CALLBACK attrsWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 WIN32_FIND_DATA* findFile(string path, bool countDir = false);
 bool fileExists(string path, bool showDialog = true);
@@ -151,7 +151,7 @@ BOOL CALLBACK mainWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 				break;
 			}
 
-			auto h = CreateFile(tempPath.c_str(),
+			auto h = CreateFile(path.c_str(),
 				GENERIC_READ,
 				0,
 				NULL,
@@ -162,14 +162,33 @@ BOOL CALLBACK mainWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 			DWORD sz;
 			GetFileSize(h, &sz);
 
-			SYSTEMTIME dateCreated;
-			FileTimeToSystemTime(&f->ftCreationTime, &dateCreated);
+			FILETIME dc, de;
+			SYSTEMTIME dcUtc, deUtc;
 
-			string info = "Дата создания: " + sysTimeToString(dateCreated) + "\n";
+			GetFileTime(h, &dc, NULL, &de);
+			FileTimeToSystemTime(&dc, &dcUtc);
+			FileTimeToSystemTime(&de, &deUtc);
+
+			string info = "Путь: " + path + "\n";
+			info += "Дата создания: " + sysTimeToString(dcUtc) + "\n";
+			info += "Дата изменения: " + sysTimeToString(deUtc) + "\n";
 			info += "Размер: " + to_string(sz) + " байт\n";
 				
 			alert(info, "Информация о файле");
 				
+			break;
+		}
+		case IDD_B_ATTRS:
+		{
+			auto path = getPath();
+			if (!fileExists(path, false))
+			{
+				alert("Файл не существует", "Ошибка", MB_OK | MB_ICONERROR);
+				break;
+			}
+
+			tempPath = path;
+			DialogBox(hInstanceMain, MAKEINTRESOURCE(IDD_ATTRS), NULL, attrsWindowHandle);
 			break;
 		}
 		default:
@@ -187,7 +206,7 @@ BOOL CALLBACK renameWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 	switch (uMsg)
 	{
 	case WM_CLOSE:
-		CloseWindow(hWnd);
+		EndDialog(hWnd, 0);
 		break;
 	case WM_COMMAND:
 	{
@@ -199,7 +218,7 @@ BOOL CALLBACK renameWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 			int r = MoveFile(tempPath.c_str(), newPath.c_str());
 			if (r == 0) alert("Не удалось переместить файл", "Ошибка", MB_OK | MB_ICONERROR);
 			else alert("Файл успешно перемещен/переименован", "Информация");
-			CloseWindow(hWnd);
+			EndDialog(hWnd, 0);
 		}
 		}
 	}
@@ -217,7 +236,7 @@ BOOL CALLBACK editWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 	switch (uMsg)
 	{
 	case WM_CLOSE:
-		CloseWindow(hWnd);
+		EndDialog(hWnd, 0);
 		break;
 	case WM_INITDIALOG:
 	{
@@ -257,7 +276,70 @@ BOOL CALLBACK editWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 			 CloseHandle(h);
 
 			 alert("Изменение файла успешно!", "Информация");
-			 CloseWindow(hWnd);
+			 EndDialog(hWnd, 0);
+		}
+		}
+	}
+	default:
+		break;
+	}
+
+	return FALSE;
+}
+
+// ATTRS WINDOW HANDLER -----------------------------------------------------------
+
+void updateCheckboxes(string path, HWND hwnd) 
+{
+	DWORD attr = GetFileAttributes(path.c_str());
+
+	if (attr & FILE_ATTRIBUTE_READONLY) SendDlgItemMessage(hwnd, ATTRS_RO, BM_SETCHECK, BST_CHECKED, 0);
+	if (attr & FILE_ATTRIBUTE_HIDDEN) SendDlgItemMessage(hwnd, ATTRS_H, BM_SETCHECK, BST_CHECKED, 0);
+	if (attr & FILE_ATTRIBUTE_ARCHIVE) SendDlgItemMessage(hwnd, ATTRS_A, BM_SETCHECK, BST_CHECKED, 0);
+	if (attr & FILE_ATTRIBUTE_NORMAL) SendDlgItemMessage(hwnd, ATTRS_N, BM_SETCHECK, BST_CHECKED, 0);
+	if (attr & FILE_ATTRIBUTE_NOT_CONTENT_INDEXED) SendDlgItemMessage(hwnd, ATTRS_NCI, BM_SETCHECK, BST_CHECKED, 0);
+	if (attr & FILE_ATTRIBUTE_OFFLINE) SendDlgItemMessage(hwnd, ATTRS_OFF, BM_SETCHECK, BST_CHECKED, 0);
+	if (attr & FILE_ATTRIBUTE_SYSTEM) SendDlgItemMessage(hwnd, ATTRS_SYS, BM_SETCHECK, BST_CHECKED, 0);
+	if (attr & FILE_ATTRIBUTE_TEMPORARY) SendDlgItemMessage(hwnd, ATTRS_TMP, BM_SETCHECK, BST_CHECKED, 0);
+}
+
+bool ifChecked(HWND hwnd, UINT id) {
+	return SendDlgItemMessage(hwnd, id, BM_GETCHECK, 0, 0) == BST_CHECKED;
+}
+
+BOOL CALLBACK attrsWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	switch (uMsg)
+	{
+	case WM_CLOSE:
+		EndDialog(hWnd, 0);
+		break;
+	case WM_INITDIALOG:
+	{
+		updateCheckboxes(tempPath, hWnd);
+		break;
+	}
+	case WM_COMMAND:
+	{
+		switch (LOWORD(wParam))
+		{
+		case ATTRS_SAVE:
+		{
+			DWORD attrs = GetFileAttributes(tempPath.c_str());
+
+			attrs = ifChecked(hWnd, ATTRS_RO) ? attrs | FILE_ATTRIBUTE_READONLY : attrs & ~FILE_ATTRIBUTE_READONLY;
+			attrs = ifChecked(hWnd, ATTRS_H) ? attrs | FILE_ATTRIBUTE_HIDDEN : attrs & ~FILE_ATTRIBUTE_HIDDEN;
+			attrs = ifChecked(hWnd, ATTRS_A) ? attrs | FILE_ATTRIBUTE_ARCHIVE : attrs & ~FILE_ATTRIBUTE_ARCHIVE;
+			attrs = ifChecked(hWnd, ATTRS_N) ? attrs | FILE_ATTRIBUTE_NORMAL : attrs & ~FILE_ATTRIBUTE_NORMAL;
+			attrs = ifChecked(hWnd, ATTRS_NCI) ? attrs | FILE_ATTRIBUTE_NOT_CONTENT_INDEXED : attrs & ~FILE_ATTRIBUTE_NOT_CONTENT_INDEXED;
+			attrs = ifChecked(hWnd, ATTRS_OFF) ? attrs | FILE_ATTRIBUTE_OFFLINE : attrs & ~FILE_ATTRIBUTE_OFFLINE;
+			attrs = ifChecked(hWnd, ATTRS_SYS) ? attrs | FILE_ATTRIBUTE_SYSTEM : attrs & ~FILE_ATTRIBUTE_SYSTEM;
+			attrs = ifChecked(hWnd, ATTRS_TMP) ? attrs | FILE_ATTRIBUTE_TEMPORARY : attrs & ~FILE_ATTRIBUTE_TEMPORARY;
+
+			SetFileAttributes(tempPath.c_str(), attrs);
+			EndDialog(hWnd, 0);
+
+			break;
 		}
 		}
 	}
