@@ -13,10 +13,10 @@ HWND hwndMain;
 HINSTANCE hInstanceMain;
 string tempPath;
 
-BOOL CALLBACK mainWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-BOOL CALLBACK renameWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-BOOL CALLBACK editWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-BOOL CALLBACK attrsWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+BOOL CALLBACK mainWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+BOOL CALLBACK renameWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+BOOL CALLBACK editWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+BOOL CALLBACK attrsWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 WIN32_FIND_DATA* findFile(string path, bool countDir = false);
 bool fileExists(string path, bool showDialog = true);
@@ -33,14 +33,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR strCmdLi
 	DialogBox(hInstanceMain,
 		MAKEINTRESOURCE(IDD_MAIN),
 		NULL,
-		mainWindowHandle);
+		mainWindowProc);
 
 	return 0;
 }
 
 // MAIN WINDOW HANDLER -----------------------------------------------------------
 
-BOOL CALLBACK mainWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+BOOL CALLBACK mainWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	hwndMain = hWnd;
 
@@ -105,7 +105,7 @@ BOOL CALLBACK mainWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 
 			tempPath = path;
 
-			DialogBox(hInstanceMain, MAKEINTRESOURCE(IDD_RENAME), NULL, renameWindowHandle);
+			DialogBox(hInstanceMain, MAKEINTRESOURCE(IDD_RENAME), NULL, renameWindowProc);
 				
 			break;
 		}
@@ -138,7 +138,7 @@ BOOL CALLBACK mainWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 			}
 
 			tempPath = path;
-			DialogBox(hInstanceMain, MAKEINTRESOURCE(IDD_EDIT), NULL, editWindowHandle);
+			DialogBox(hInstanceMain, MAKEINTRESOURCE(IDD_EDIT), NULL, editWindowProc);
 			break;
 		}
 		case IDD_B_INFO:
@@ -188,7 +188,7 @@ BOOL CALLBACK mainWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 			}
 
 			tempPath = path;
-			DialogBox(hInstanceMain, MAKEINTRESOURCE(IDD_ATTRS), NULL, attrsWindowHandle);
+			DialogBox(hInstanceMain, MAKEINTRESOURCE(IDD_ATTRS), NULL, attrsWindowProc);
 			break;
 		}
 		default:
@@ -201,7 +201,7 @@ BOOL CALLBACK mainWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 
 // RENAME WINDOW HANDLER -----------------------------------------------------------
 
-BOOL CALLBACK renameWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+BOOL CALLBACK renameWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	switch (uMsg)
 	{
@@ -231,7 +231,7 @@ BOOL CALLBACK renameWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 
 // EDIT WINDOW HANDLER -----------------------------------------------------------
 
-BOOL CALLBACK editWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+BOOL CALLBACK editWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	switch (uMsg)
 	{
@@ -307,7 +307,7 @@ bool ifChecked(HWND hwnd, UINT id) {
 	return SendDlgItemMessage(hwnd, id, BM_GETCHECK, 0, 0) == BST_CHECKED;
 }
 
-BOOL CALLBACK attrsWindowHandle(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+BOOL CALLBACK attrsWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	switch (uMsg)
 	{
