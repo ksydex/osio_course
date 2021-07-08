@@ -23,9 +23,11 @@ bool fileExists(string path, bool showDialog = true);
 void alert(string msg, string title = "Alert!", UINT uType = MB_OK | MB_ICONINFORMATION);
 string getStringFromId(int id, HWND hwnd);
 string getPath();
-void clearPath();
 vector<string> splitString(string s, string delimiter);
 string sysTimeToString(SYSTEMTIME st);
+
+void updateCheckboxes(string path, HWND hwnd);
+bool ifChecked(HWND hwnd, UINT id);
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR strCmdLine, int nCmdShow)
 {
@@ -70,7 +72,7 @@ BOOL CALLBACK mainWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			auto path = getPath();
 			if (fileExists(path, false))
 			{
-				auto h = DeleteFileA(path.c_str());
+				auto h = DeleteFile(path.c_str());
 				if (h) alert("Файл успешно удален", "Информация", MB_OK | MB_ICONINFORMATION);
 				else alert("Ошибка при удалении файла", "Ошибка", MB_OK | MB_ICONERROR);
 			}
@@ -88,7 +90,7 @@ BOOL CALLBACK mainWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			auto newPath = path;
 			newPath = regex_replace(newPath, regex("\\."), "(copy).");
 
-			CopyFileA(path.c_str(), newPath.c_str(), true);
+			CopyFile(path.c_str(), newPath.c_str(), true);
 
 			alert("Файл успешно скопирован по пути " + newPath, "Информация");
 				
@@ -372,7 +374,7 @@ bool fileExists(string path, bool showDialog) {
 
 void alert(string msg, string title, UINT uType)
 {
-	MessageBoxA(NULL, msg.c_str(), title.c_str(), uType);
+	MessageBox(NULL, msg.c_str(), title.c_str(), uType);
 }
 
 string getPath()
