@@ -193,6 +193,25 @@ BOOL CALLBACK mainWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			DialogBox(hInstanceMain, MAKEINTRESOURCE(IDD_ATTRS), NULL, attrsWindowProc);
 			break;
 		}
+		case IDC_B_SEARCH:
+		{
+			string pattern = getStringFromId(IDC_SEARCH, hWnd);
+			WIN32_FIND_DATA data;
+			HANDLE hFind = FindFirstFile(pattern.c_str(), &data);
+			if (hFind == INVALID_HANDLE_VALUE)
+			{
+				alert("Паттерн не найден", "Ошибка", MB_OK | MB_ICONERROR);
+				break;
+			}
+
+			string res = string(data.cFileName) + "\n";
+				
+			while (FindNextFile(hFind, &data) != 0)
+				res += string(data.cFileName) + "\n";
+
+			SetDlgItemText(hWnd, IDC_T_TEXT, res.c_str());
+			break;
+	    }
 		default:
 			break;
 		}
@@ -350,6 +369,13 @@ BOOL CALLBACK attrsWindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 	}
 
 	return FALSE;
+}
+
+// SEARCH ---------------------------------------------------------------------
+
+void search()
+{
+	
 }
 
 // HELPER METHODS -------------------------------------------------------------
